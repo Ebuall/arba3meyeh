@@ -1,0 +1,44 @@
+{
+  "name": "arba3meyeh",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "@material-ui/core": "^3.0.3",
+    "@material-ui/lab": "^3.0.0-alpha.16",
+    "dotenv": "^6.0.0",
+    "fp-ts": "^1.8.1",
+    "immutable": "^4.0.0-rc.9",
+    "json-stringify-pretty-compact": "^1.2.0",
+    "koa": "^2.5.3",
+    "koa-static": "^5.0.0",
+    "lodash": "^4.17.11",
+    "monocle-ts": "^1.2.0",
+    "react": "^16.5.1",
+    "socket.io": "^2.1.1",
+    "socket.io-client": "^2.1.1",
+    "tslib": "^1.9.3"
+  },
+  "devDependencies": {
+    "@types/koa": "^2.0.46",
+    "@types/koa-static": "^4.0.0",
+    "@types/lodash": "~4.14.116",
+    "@types/node": "~10.9.4",
+    "@types/react-dom": "^16.0.7",
+    "@types/socket.io": "^1.4.38",
+    "@types/socket.io-client": "^1.4.32",
+    "parcel": "^1.9.7",
+    "react-dom": "^16.5.1",
+    "ts-node": "^7.0.1",
+    "ts-node-dev": "^1.0.0-pre.30",
+    "typescript": "^3.0.3"
+  },
+  "scripts": {
+    "start": "ts-node-dev backend/index.ts",
+    "frontend": "parcel public/index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
