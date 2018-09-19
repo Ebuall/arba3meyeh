@@ -1,7 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "include": ["backend/frontend.ts"],
-  "compilerOptions": {
-    "outFile": "public/frontend.js"
-  }
-}
