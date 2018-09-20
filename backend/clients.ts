@@ -1,95 +1,97 @@
-import { List } from "immutable";
-import omit from "lodash/omit";
+import { tuple } from "fp-ts/lib/function";
+import { List, Map } from "immutable";
+import pick from "lodash/pick";
 import { Socket } from "socket.io";
-import { Match, Player, derivePlayerState, playCard, setBid } from "./player";
-import { User, Card } from "../model";
+import { Ref, User } from "../model";
+import {
+  derivePlayerState,
+  Id,
+  Match,
+  playCard,
+  Player,
+  setBid,
+  GameState,
+} from "./game";
 
-let queue = List.of<Player>();
-let games = List.of<Ref<Match>>();
+type Queued = Pick<Player, "user" | "socket">;
 
-const getName = (p: Player) => p.user.name;
-const getId = (p: User) => p.name;
+let queue = List.of<Queued>();
+let games = Map<Id, Ref<Match>>();
+let connections = Map<User["id"], Player>();
 
-function connectSpectator(socket: Socket) {
-  const noSocket = games.map(get).map(g => omit(g, ["players"]));
-  socket.on("inspect", ack => {
-    console.log("ack", noSocket.toJSON());
-    ack(noSocket.toArray());
-  });
-}
+export function connect(socket: Socket) {
+  const user: User = pick(socket.handshake.query, ["id", "name"]);
 
-export function connect(client: Socket) {
-  const username = client.handshake.query.name;
-  if (username === "$DEBUG") {
-    return connectSpectator(client);
+  const alreadyConnected = connections.get(user.id);
+  console.log("connecteding", user, !!alreadyConnected);
+  if (alreadyConnected) {
+    connections = connections.setIn([user.id, "socket"], socket);
+    connectPlayer(user);
+    sendState(games.get(alreadyConnected.gameId)!.val);
+    return;
   }
-  console.log("connected", username);
-  queue = queue.push({
-    user: { name: username },
-    socket: client,
-  });
+
+  queue = queue.push({ user, socket });
 
   if (queue.size >= 4) {
-    startGame(queue.take(4).toArray());
+    const players = queue.take(4);
+    startGame(players.toArray());
     queue = queue.skip(4).toList();
   }
 
-  client.on("disconnect", () => {
-    queue = queue.filterNot(p => p.user.name == username).toList();
+  socket.on("disconnect", () => {
+    queue = queue.filterNot(p => p.user.name == user.name).toList();
   });
 }
 
-function startGame(players: Player[]) {
-  console.log("starting", players.map(getName));
-  const newGame = Match(players);
-  const game = ref(newGame);
-  games = games.push(game);
+function sendState(game: Match) {
+  game.players.forEach((p, i) => {
+    connections.get(p.id)!.socket.emit("gameState", derivePlayerState(game, i));
+  });
+}
 
-  function sendState() {
-    game.val.players.forEach((p, i) => {
-      p.socket.emit("gameState", derivePlayerState(game.val, i));
-    });
-  }
+function startGame(queued: Queued[]) {
+  const users = queued.map(p => p.user);
+  console.log("starting", users);
+  const newGame = Match(users);
+  const game = new Ref(newGame);
+  connections = connections.merge(
+    queued.map((p, i) =>
+      tuple(p.user.id, { ...p, gameId: newGame.id, index: i }),
+    ),
+  );
+  games = games.set(newGame.id, game);
+  newGame.players.forEach(connectPlayer);
+  sendState(game.val);
+}
 
-  newGame.players.forEach((p, i) => {
-    p.socket.on("bid", (bid: number) => {
-      if (game.val.playerTurn != i) return;
-      console.log("got bid from", getName(p), i, bid);
-      game.val = setBid(game.val, i, bid);
-      sendState();
-    });
-
-    p.socket.on("playCard", (card: number) => {
-      if (game.val.playerTurn != i) return;
-      console.log("got card from", getName(p), i, card);
-      game.val = playCard(game.val, i, card);
-      sendState();
-    });
+function connectPlayer(user: User) {
+  const { socket, gameId, index } = connections.get(user.id)!;
+  const game = games.get(gameId)!;
+  socket.on("bid", (bid: number) => {
+    if (game.val.playerTurn != index) return;
+    console.log("got bid from", user.name, index, bid);
+    game.upd(val => setBid(val, index, bid));
+    sendState(game.val);
   });
 
-  sendState();
-}
+  socket.on("playCard", (card: number) => {
+    if (game.val.playerTurn != index) return;
+    // console.log("got card from", user.name, index, card);
+    game.upd(val => playCard(val, index, card));
+    sendState(game.val);
 
-type Ref<T> = { val: T };
-function ref<T>(val: T): Ref<T> {
-  return { val };
+    if (game.val.state === GameState.Over) {
+      setTimeout(() => {
+        games = games.delete(game.val.id);
+        game.val.players.forEach(u => {
+          const p = connections.get(u.id);
+          if (p && p.gameId == game.val.id) {
+            connections = connections.delete(u.id);
+          }
+        });
+        console.log("cleaning up, game:", game.val.id, "games running:", games.size);
+      }, 30 * 1000);
+    }
+  });
 }
-function upd<T>(f: (val: T) => T) {
-  return (ref: Ref<T>) => {
-    ref.val = f(ref.val);
-    return ref;
-  };
-}
-function get<T>(ref: Ref<T>) {
-  return ref.val;
-}
-
-// setInterval(() => {
-//   let deck = makeDeck();
-//   queue.forEach(entry => {
-//     const [hand, newDeck] = drawN(5, deck);
-//     deck = newDeck;
-//     entry!.socket.emit("newData", hand);
-//   });
-//   console.log("queue", queue.map(getName));
-// }, 5000);

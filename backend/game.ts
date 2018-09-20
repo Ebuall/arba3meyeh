@@ -1,16 +1,12 @@
 import assert from "assert";
-import { unsafeDeleteAt, refine, isEmpty } from "fp-ts/lib/Array";
+import { isEmpty, refine, unsafeDeleteAt, zipWith } from "fp-ts/lib/Array";
+import { max } from "fp-ts/lib/Ord";
 import { setIn, updateIn } from "immutable";
 import { Socket } from "socket.io";
-import { Card, dealDeck, User, mapNullable } from "../model";
-import { max } from "fp-ts/lib/Ord";
+import { Card, dealDeck, mapNullable, User } from "../model";
+import { Id } from "./game";
 
 export type Id = number;
-
-export type Player = {
-  user: User;
-  socket: Socket;
-};
 
 export type Tuple4<T> = [T, T, T, T];
 
@@ -21,13 +17,20 @@ export enum GameState {
   Over,
 }
 
+export type Player = {
+  user: User;
+  socket: Socket;
+  gameId: Id;
+  index: number;
+};
+
 let gameid = 0;
 const nulls = Object.freeze([null, null, null, null]) as Tuple4<null>;
 const zeros = Object.freeze([0, 0, 0, 0]) as Tuple4<number>;
-export function Match(players: Player[]): Match {
+export function Match(players: User[]): Match {
   assert.strictEqual(players.length, 4, "should be exactly 4 players");
   return {
-    players: players as Tuple4<Player>,
+    players: players as Tuple4<User>,
     hands: dealDeck(),
     board: nulls,
     bids: zeros,
@@ -38,7 +41,7 @@ export function Match(players: Player[]): Match {
   };
 }
 export type Match = {
-  players: Tuple4<Player>;
+  players: Tuple4<User>;
   hands: Tuple4<Card[]>;
   board: Tuple4<Card | null>;
   bids: Tuple4<number>;
@@ -59,16 +62,35 @@ function inc(n: number) {
 function incTurn(game: Match) {
   return updateIn(game, ["playerTurn"], t => inc(t) % 4);
 }
-export function playCard(game: Match, player: number, card: number): Match {
+function putCard(game: Match, player: number, card: number): Match {
   const actualCard = game.hands[player][card];
   const fromHand = updateIn(incTurn(game), ["hands", player], hand =>
     unsafeDeleteAt(card, hand),
   );
   const onBoard = setIn(fromHand, ["board", player], actualCard);
-  if (allReady(onBoard.board)) {
-    return playTrick(onBoard);
-  }
   return onBoard;
+}
+function endGame(game: Match) {
+  return setIn(game, ["state"], GameState.Over);
+}
+function isEnoughScore(game: Match) {
+  return allScores(game).some(v => v > 41);
+}
+function newDeal(game: Match) {
+  return setIn(game, ["hands"], dealDeck());
+}
+export function playCard(game: Match, player: number, card: number): Match {
+  const cardPlayed = putCard(game, player, card);
+
+  if (!allReady(cardPlayed.board)) return cardPlayed;
+
+  const cleanBoard = playTrick(cardPlayed);
+
+  if (isEnoughScore(cleanBoard)) return endGame(cleanBoard);
+  if (!cleanBoard.hands.every(isEmpty)) return cleanBoard;
+
+  const newDeck = newDeal(cleanBoard);
+  return newDeck;
 }
 function findHighest(board_: Match["board"]): number {
   const board = refine(board_, notNull);
@@ -82,9 +104,6 @@ function playTrick(game: Match): Match {
   console.log("winner", winner, game.board.map(mapNullable(Card.show)));
   const addWin = updateIn(game, ["bidsTaken", winner], inc);
   const clearBoard = setIn(addWin, ["board"], nulls);
-  if (clearBoard.hands.every(isEmpty)) {
-    return setIn(clearBoard, ["state"], GameState.Over);
-  }
   return clearBoard;
 }
 export function setBid(game: Match, player: number, bid: number): Match {
@@ -131,6 +150,9 @@ export function calculateScore(bid: number, taken: number) {
     return toPoints(taken) - toPoints(bid - taken);
   }
 }
+export function allScores(s: Pick<Match, "bids" | "bidsTaken">) {
+  return zipWith(s.bids, s.bidsTaken, calculateScore);
+}
 function toPoints(n: number) {
   if (n < 5) {
     return n;
@@ -138,5 +160,8 @@ function toPoints(n: number) {
   if (n < 9) {
     return n * 2;
   }
-  return n * 3;
+  if (n < 11) {
+    return n * 3;
+  }
+  return n * 4;
 }

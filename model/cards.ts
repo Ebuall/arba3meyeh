@@ -1,12 +1,12 @@
-import shuffle from "lodash/shuffle";
-import range from "lodash/range";
-import flatMap from "lodash/flatMap";
-import { take, drop, array } from "fp-ts/lib/Array";
-import { none, some } from "fp-ts/lib/Option";
+import { array, drop, take } from "fp-ts/lib/Array";
 import { tuple } from "fp-ts/lib/function";
-import { Tuple4 } from "../backend/player";
-import { Ordering, sign } from "fp-ts/lib/Ordering";
-import { ordNumber, fromCompare } from "fp-ts/lib/Ord";
+import { none, some } from "fp-ts/lib/Option";
+import { fromCompare, ordNumber } from "fp-ts/lib/Ord";
+import { Ordering } from "fp-ts/lib/Ordering";
+import flatMap from "lodash/flatMap";
+import range from "lodash/range";
+import shuffle from "lodash/shuffle";
+import { Tuple4 } from "../backend/game";
 
 export enum Rank {
   Two,

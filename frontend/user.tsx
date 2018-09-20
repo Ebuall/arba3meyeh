@@ -6,11 +6,10 @@ import {
   CardHeader,
 } from "@material-ui/core";
 import Slider from "@material-ui/lab/Slider";
-import { zipWith } from "fp-ts/lib/Array";
 import { updateIn } from "immutable";
 import * as React from "react";
 import io from "socket.io-client";
-import { calculateScore, GameState, PlayerState } from "../backend/player";
+import { allScores, GameState, PlayerState } from "../backend/game";
 import { Card, mapNullable } from "../model";
 var stringify = require("json-stringify-pretty-compact");
 
@@ -28,7 +27,7 @@ export class UserDebug extends React.Component<Props, State> {
   state: State = { data: null, bid: 2 };
   componentDidMount() {
     const { name } = this.props;
-    this.socket = io("http://localhost:3555", { query: { name } });
+    this.socket = io("http://localhost:3555", { query: { name, id: name } });
     this.socket.on("connect", () => console.log(name, "connected"));
     this.socket.on("gameState", (data: PlayerState) => {
       this.setState({ data });
@@ -36,7 +35,7 @@ export class UserDebug extends React.Component<Props, State> {
         if (data.yourTurn)
           switch (data.state) {
             case GameState.Bids:
-              return this.submitBid(null, data.index + 2);
+              return this.submitBid(null, data.index + 10);
             case GameState.Tricks:
               return this.playCard(null);
           }
@@ -75,12 +74,8 @@ export class UserDebug extends React.Component<Props, State> {
         <CardHeader title={"Hello UserDebug " + name} />
         <CardContent>
           <pre>{stringify(pretty, { maxLength: 120 })}</pre>
-          {data.state == GameState.Over && (
-            <h1>
-              Game over, score{" "}
-              {zipWith(data.bids, data.bidsTaken, calculateScore)[data.index]}
-            </h1>
-          )}
+          {data.state == GameState.Over && <h1>Game over </h1>}
+          <pre>score {allScores(data)[data.index]}</pre>
         </CardContent>
         <CardActions>
           {data.state == GameState.Tricks && (

@@ -5,7 +5,7 @@ import { render } from "react-dom";
 import { UserDebug } from "./user";
 
 class DebugView extends React.Component {
-  state = { delay: 200 };
+  state = { delay: 100 };
   setDelay = (_ev: any, delay: number = _ev.target.value) =>
     this.setState({ delay });
   render() {
