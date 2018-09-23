@@ -1,101 +1,99 @@
 import {
-  Button,
-  Card as MaterialCard,
-  CardActions,
-  CardContent,
-  CardHeader,
-} from "@material-ui/core";
-import Slider from "@material-ui/lab/Slider";
-import { updateIn } from "immutable";
+  initial,
+  pending,
+  RemoteData,
+  success,
+} from "@devexperts/remote-data-ts";
 import * as React from "react";
 import io from "socket.io-client";
-import { allScores, GameState, PlayerState } from "../backend/game";
-import { Card, mapNullable } from "../model";
-var stringify = require("json-stringify-pretty-compact");
+import { PlayerState } from "../backend/game";
+import { AI } from "../model/ai";
 
+export type InitialProps = { onClick: () => void };
+export type FailureProps = { err: string };
+export type SuccessProps = {
+  data: PlayerState;
+  name: string;
+  playCard: (n: number) => void;
+  submitBid: (n: number) => void;
+  leaveGame: () => void;
+};
 type Props = {
   name: string;
   delay: number;
+  autoPlay: boolean;
+  forceSolo: boolean;
+  Initial: React.ComponentType<InitialProps>;
+  Pending: React.ComponentType<any>;
+  Failure: React.ComponentType<FailureProps>;
+  Success: React.ComponentType<SuccessProps>;
 };
 type State = {
-  data: PlayerState | null;
-  bid: number;
+  data: RemoteData<string, PlayerState>;
 };
 
-export class UserDebug extends React.Component<Props, State> {
+/** React-native safe */
+export class UserConnection extends React.Component<Props, State> {
   socket!: SocketIOClient.Socket;
-  state: State = { data: null, bid: 2 };
+  ai!: AI;
+  state: State = { data: initial };
   componentDidMount() {
-    const { name } = this.props;
-    this.socket = io("http://localhost:3555", { query: { name, id: name } });
-    this.socket.on("connect", () => console.log(name, "connected"));
-    this.socket.on("gameState", (data: PlayerState) => {
-      this.setState({ data });
-      setTimeout(() => {
-        if (data.yourTurn)
-          switch (data.state) {
-            case GameState.Bids:
-              return this.submitBid(null, data.index + 10);
-            case GameState.Tricks:
-              return this.playCard(null);
-          }
-      }, this.props.delay);
-    });
+    this.connect();
   }
-  playCard = (_: any, card = 0) => {
-    const { data } = this.state;
-    if (!data || !data.yourTurn) return;
+  componentDidUpdate() {
+    const { autoPlay, delay } = this.props;
+    autoPlay &&
+      this.state.data.map(data => {
+        setTimeout(this.ai.makeAutoPlay, delay, data);
+      });
+  }
+  connect = () => {
+    const { name, forceSolo } = this.props;
+    const socket = io("http://localhost:3555", {
+      query: { name, id: name, forceSolo },
+      transports: ["websocket", "polling"],
+    });
+    this.socket = socket;
+    this.setState({ data: pending });
+    socket.on("connect", () => console.log(name, "connected"));
+    socket.on("gameState", (data: PlayerState) => {
+      this.setState({ data: success(data) });
+    });
+    this.ai = new AI(socket);
+  };
+  playCard = (card: number) => {
+    this.state.data.map(d => this.ai.playCard(d, card));
+  };
+  submitBid = (bid: number) => {
+    this.state.data.map(d => this.ai.submitBid(d, bid));
+  };
+  leaveGame = () => {
+    this.socket.emit("gameLeave");
+    this.socket.close();
+    this.setState({ data: initial });
+    console.log("leaving game");
+  };
+  componentWillUnmount() {
+    this.leaveGame();
+  }
 
-    const cardToSend = this.state.data!.hand[card];
-    console.log("sending card", cardToSend);
-    this.socket.emit("playCard", card);
-  };
-  submitBid = (_: any, bid = this.state.bid) => {
-    const { data } = this.state;
-    if (!data || !data.yourTurn) return;
-    console.log("submitting bid", bid);
-    this.socket.emit("bid", bid);
-  };
-  handleSlider = (_ev: any, bid: number) => {
-    return this.setState({ bid });
-  };
   render() {
-    const { name } = this.props;
-    const { data, bid } = this.state;
+    const { name, Initial, Pending, Failure, Success } = this.props;
+    const { data } = this.state;
 
-    if (!data) return "Loading";
-    const pretty = updateIn(
-      updateIn(data, ["hand"], a => a.map(Card.show)),
-      ["board"],
-      a => a.map(mapNullable(Card.show)),
-    );
-    return (
-      <MaterialCard>
-        <CardHeader title={"Hello UserDebug " + name} />
-        <CardContent>
-          <pre>{stringify(pretty, { maxLength: 120 })}</pre>
-          {data.state == GameState.Over && <h1>Game over </h1>}
-          <pre>score {allScores(data)[data.index]}</pre>
-        </CardContent>
-        <CardActions>
-          {data.state == GameState.Tricks && (
-            <Button onClick={this.playCard}>Send card</Button>
-          )}
-          {data.state == GameState.Bids && (
-            <div style={{ width: 300 }}>
-              Your bid {bid}
-              <Button onClick={this.submitBid}>Submit</Button>
-              <Slider
-                value={bid}
-                min={2}
-                max={13}
-                step={1}
-                onChange={this.handleSlider}
-              />
-            </div>
-          )}
-        </CardActions>
-      </MaterialCard>
+    return data.fold<React.ReactNode>(
+      <Initial onClick={this.connect} />,
+      <Pending />,
+      err => <Failure err={err} />,
+      data => (
+        <Success
+          data={data}
+          name={name}
+          playCard={this.playCard}
+          submitBid={this.submitBid}
+          leaveGame={this.leaveGame}
+        />
+      ),
     );
   }
 }

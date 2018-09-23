@@ -3,9 +3,11 @@ import Express from "express";
 import http from "http";
 import opn from "opn";
 import SocketIO from "socket.io";
-import { connect } from "./clients";
+import { Action } from "./ducks";
+import { store } from "./store";
+const debug = require("debug")("server:root");
 
-const log = (msg: string) => (...args: any[]) => console.log(msg, ...args);
+const log = (msg: string) => (...args: any[]) => debug(msg, ...args);
 
 const app = Express();
 
@@ -24,7 +26,8 @@ io.on("connection", function(client) {
   client.on("error", log("some error"));
   client.on("disconnect", log("disconnect"));
   client.on("myping", start => client.emit("mypong", start));
-  connect(client);
+  // connect(client);
+  store.dispatch(Action.Connect(client));
 });
 
 server.listen(PORT, log("server started on " + PORT));

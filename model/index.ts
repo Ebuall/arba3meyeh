@@ -11,3 +11,10 @@ export const mapNullable = <T, U>(f: (n: T) => U) => (
     return f(v);
   }
 };
+
+export function parseBool(s: unknown) {
+  if (typeof s === "boolean") return s;
+  if (typeof s === "string") return s == "true";
+  if (typeof s === "number") return s > 0;
+  return false;
+}
