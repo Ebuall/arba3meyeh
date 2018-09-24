@@ -8,12 +8,15 @@ import {
   GameState,
   Id,
   Match,
-  playCard,
   Player,
   setBid,
   Team,
+  putCard,
+  allReady,
+  handleFull,
 } from "./game";
 import { MySocket } from "./socket";
+import { scheduleAction } from "./loop";
 const debug = require("debug")("server:ducks");
 
 export class Coords {
@@ -26,6 +29,7 @@ export const Action = unionize(
     Disconnect: ofType<Id>(),
     Bid: ofType<[Coords, number]>(),
     Card: ofType<[Coords, number]>(),
+    HandleFullBoard: ofType<Id>(),
     GameDeleteSchedule: ofType<Id>(),
     GameDelete: ofType<Id>(),
     GameLeave: ofType<Coords>(),
@@ -68,13 +72,21 @@ export function reducer(
         // debug("missing game", action.payload);
         return state;
       }
-      const updatedGame: Match = playCard(game, userIndex, card);
-      const newState = setIn(state, ["games", gameId], updatedGame);
-      const effect =
-        updatedGame.state === GameState.Over
-          ? Cmd.action(Action.GameDeleteSchedule(game.id))
-          : Cmd.none;
-      return loop(newState, effect);
+      const cardPlayed = putCard(game, userIndex, card);
+      const newState = setIn(state, ["games", gameId], cardPlayed);
+
+      return loop(
+        newState,
+        allReady(cardPlayed.board)
+          ? scheduleAction(Action.HandleFullBoard(game.id), 3000)
+          : Cmd.none,
+      );
+    },
+    HandleFullBoard: id => {
+      const game = state.games.get(id);
+      if (!game || !allReady(game.board)) return state;
+
+      return updateIn(state, ["games", id], handleFull);
     },
     GameDeleteSchedule: id => {
       return loop(

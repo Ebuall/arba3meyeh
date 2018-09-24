@@ -1,4 +1,5 @@
-import { GameState, PlayerState } from "../backend/game";
+import { GameState, PlayerState, allReady } from "../backend/game";
+import { Card } from "./cards";
 
 /** Most general emitter */
 interface Emitter {
@@ -15,15 +16,20 @@ export class AI {
   constructor(private socket: Emitter) {}
 
   playCard = (data: Data, card = 0) => {
-    if (!isMyTurn(data)) return;
+    if (
+      !isMyTurn(data) ||
+      data.state !== GameState.Tricks ||
+      allReady(data.board)
+    )
+      return;
 
     const cardToSend = data.hand[card];
-    console.log("sending card", cardToSend);
+    console.log("sending card", Card.show(cardToSend));
     this.socket.emit("playCard", card);
   };
 
   submitBid = (data: Data, bid = data.index + 2) => {
-    if (!isMyTurn(data)) return;
+    if (!isMyTurn(data) || data.state !== GameState.Bids) return;
 
     console.log("submitting bid", bid);
     this.socket.emit("bid", bid);
@@ -31,7 +37,6 @@ export class AI {
 
   makeAutoPlay = (data: Data) => {
     if (!isMyTurn(data)) return;
-
     switch (data.state) {
       case GameState.Bids:
         return this.submitBid(data);

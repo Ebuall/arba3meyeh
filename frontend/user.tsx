@@ -8,6 +8,7 @@ import * as React from "react";
 import io from "socket.io-client";
 import { PlayerState } from "../backend/game";
 import { AI } from "../model/ai";
+import { User } from "../model";
 
 export type InitialProps = { onClick: () => void };
 export type FailureProps = { err: string };
@@ -19,7 +20,8 @@ export type SuccessProps = {
   leaveGame: () => void;
 };
 type Props = {
-  name: string;
+  user: User;
+  url: string;
   delay: number;
   autoPlay: boolean;
   forceSolo: boolean;
@@ -48,10 +50,15 @@ export class UserConnection extends React.Component<Props, State> {
       });
   }
   connect = () => {
-    const { name, forceSolo } = this.props;
-    const socket = io("http://localhost:3555", {
-      query: { name, id: name, forceSolo },
-      transports: ["websocket", "polling"],
+    const {
+      user: { name, id },
+      url,
+      forceSolo,
+    } = this.props;
+    console.log("connecting", name);
+    const socket = io(url, {
+      query: { name, id, forceSolo },
+      // transports: ["websocket", "polling"],
     });
     this.socket = socket;
     this.setState({ data: pending });
@@ -78,7 +85,13 @@ export class UserConnection extends React.Component<Props, State> {
   }
 
   render() {
-    const { name, Initial, Pending, Failure, Success } = this.props;
+    const {
+      user: { name },
+      Initial,
+      Pending,
+      Failure,
+      Success,
+    } = this.props;
     const { data } = this.state;
 
     return data.fold<React.ReactNode>(

@@ -2,9 +2,9 @@ import assert from "assert";
 import { isEmpty, refine, unsafeDeleteAt, zipWith } from "fp-ts/lib/Array";
 import { max } from "fp-ts/lib/Ord";
 import { set, setIn, updateIn } from "immutable";
-import { Card, dealDeck, mapNullable, User } from "../model";
-import { MySocket } from "./socket";
+import { Card, dealDeck, User } from "../model";
 import { Id } from "./game";
+import { MySocket } from "./socket";
 
 export type Id = number | string;
 
@@ -46,6 +46,16 @@ export namespace Team {
         return Team.None;
     }
   }
+  export function color(t: Team) {
+    switch (t) {
+      case Team.Red:
+        return "red";
+      case Team.Blue:
+        return "blue";
+      case Team.None:
+        return "black";
+    }
+  }
 }
 
 export type Player = {
@@ -79,7 +89,7 @@ export function Match(players: User[]) {
 function notNull<T>(a: T): a is Exclude<T, null | undefined> {
   return a != null;
 }
-function allReady(a: (any)[]) {
+export function allReady(a: (any)[]) {
   return a.every(notNull);
 }
 function inc(n: number) {
@@ -88,7 +98,9 @@ function inc(n: number) {
 function incTurn(game: Match) {
   return updateIn(game, ["playerTurn"], t => inc(t) % 4);
 }
-function putCard(game: Match, player: number, card: number): Match {
+export function putCard(game: Match, player: number, card: number): Match {
+  if (!(game.playerTurn === player) || allReady(game.board)) return game;
+
   const actualCard = game.hands[player][card];
   const fromHand = updateIn(incTurn(game), ["hands", player], hand =>
     unsafeDeleteAt(card, hand),
@@ -122,13 +134,11 @@ function newDeal(game: Match) {
     state: GameState.Bids,
   };
 }
-export function playCard(game: Match, player: number, card: number): Match {
-  const cardPlayed = putCard(game, player, card);
 
-  if (!allReady(cardPlayed.board)) return cardPlayed;
+export function handleFull(game: Match): Match {
+  if (!allReady(game.board)) return game;
 
-  const cleanBoard = playTrick(cardPlayed);
-
+  const cleanBoard = playTrick(game);
   const winner = findWinner(cleanBoard);
   if (winner) return endGame(cleanBoard, winner);
   if (!cleanBoard.hands.every(isEmpty)) return cleanBoard;
@@ -173,6 +183,10 @@ export function derivePlayerState(
     ...game,
   };
   return res;
+}
+export function indexFromOthers(fromThree: number, myIndex: number) {
+  if (fromThree < myIndex) return fromThree;
+  else return fromThree + 1;
 }
 
 export function calculateScore(bid: number, taken: number) {

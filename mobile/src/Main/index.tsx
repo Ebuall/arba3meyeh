@@ -11,7 +11,7 @@ enum Page {
 export class Main extends React.Component {
   state = { page: Page.Login, user: none as Option<User> };
   submit = (name: string) => {
-    this.setState({ user: some({ name }), page: Page.Game });
+    this.setState({ user: some({ name, id: name }), page: Page.Game });
   };
   toLogin = () => {
     this.setState({ page: Page.Login });

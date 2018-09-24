@@ -1,53 +1,87 @@
-import { none, some } from "fp-ts/lib/Option";
 import * as React from "react";
-import { Text, View } from "react-native";
-import io from "socket.io-client";
-import { Card, User } from "../../../model";
-import { Header } from "../Header";
-import { Hand } from "./Hand";
+import {
+  ActivityIndicator,
+  Text,
+  View,
+  StatusBar,
+  StyleSheet,
+} from "react-native";
+import { Button } from "react-native-elements";
+import { UserConnection } from "../../../frontend/user";
+import { User } from "../../../model";
+import { Controls } from "./Controls";
+import { FontAwesome } from "@expo/vector-icons";
+import { Team, PlayerState } from "../../../backend/game";
+import { Environment } from "./Environment";
 
 type Props = {
   goBack: () => void;
   user: User;
 };
-
+const url = "https://c25e0afd.ngrok.io";
+// url="http://192.168.0.65:3555"
+console.log("url:", url);
 export class Game extends React.Component<Props> {
-  socket!: SocketIOClient.Socket;
-  state = { hand: none };
-
-  componentDidMount() {
-    this.socket = io("http://192.168.0.65:3555", {
-      query: this.props.user,
-    });
-    this.socket.on("mypong", (start: number) =>
-      console.log("passed", Date.now() - start),
-    );
-    this.socket.on("newData", (hand: Card[]) => {
-      this.setState({ hand: some(hand) });
-    });
-  }
-
-  ping = () => {
-    console.log("sending ping");
-    this.socket.emit("myping", Date.now());
-  };
-
   render() {
+    const { user, goBack } = this.props;
     return (
-      <View>
-        <Header
-          title="Hello"
-          leftComponent={{
-            icon: "arrow-back",
-            color: "#fff",
-            onPress: this.props.goBack,
+      <View flex={1} paddingTop={StatusBar.currentHeight}>
+        <View style={styles.menuButton}>
+          {/* <Button title="Menu" onPress={goBack} /> */}
+          <FontAwesome.Button
+            color="black"
+            backgroundColor="white"
+            name="gear"
+            onPress={goBack}
+            // style={styles.menuIcon}
+          >
+            Menu
+          </FontAwesome.Button>
+        </View>
+        <UserConnection
+          url={url}
+          user={user}
+          autoPlay={false}
+          forceSolo
+          delay={0}
+          Initial={props => (
+            <View>
+              <Button onPress={props.onClick} title="Connect" />
+            </View>
+          )}
+          Pending={() => (
+            <View flex={1} justifyContent="center">
+              <ActivityIndicator size="large" />
+            </View>
+          )}
+          Failure={props => (
+            <View>
+              <Text>{JSON.stringify(props.err)}</Text>
+            </View>
+          )}
+          Success={props => {
+            const data: PlayerState = props.data;
+            return (
+              <View flex={1}>
+                <Environment data={data} />
+                <Controls
+                  data={data}
+                  onPlay={props.playCard}
+                  onBid={props.submitBid}
+                />
+              </View>
+            );
           }}
         />
-        <Text>Hello Board</Text>
-        {this.state.hand.fold(null, hand => (
-          <Hand hand={hand} />
-        ))}
       </View>
     );
   }
 }
+
+const styles = StyleSheet.create({
+  menuButton: {
+    position: "absolute",
+    right: 12,
+    top: StatusBar.currentHeight,
+  },
+});

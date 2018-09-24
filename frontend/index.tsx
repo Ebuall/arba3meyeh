@@ -61,7 +61,8 @@ class DebugView extends React.Component {
             <UserConnection
               forceSolo={USER_COUNT === 1}
               key={name}
-              name={name}
+              user={{ name, id: name }}
+              url="http://localhost:3555"
               delay={delay}
               autoPlay={autoPlay}
               Initial={ConnectPage}

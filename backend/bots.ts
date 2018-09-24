@@ -11,7 +11,7 @@ function spawnBot(name: string) {
   const ai = new AI(socket);
   socket.on("gameState", state => {
     // debug("state", state);
-    setTimeout(ai.makeAutoPlay, 30, state);
+    setTimeout(ai.makeAutoPlay, 500, state);
   });
   return { user, socket };
 }
