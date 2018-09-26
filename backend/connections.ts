@@ -6,7 +6,7 @@ import { Cmd, loop } from "redux-loop";
 import { User, parseBool } from "../model";
 import { makeBots } from "./bots";
 import { Action, Coords, State } from "./ducks";
-import { Match, Player } from "./game";
+import { Match, Player, getInfo } from "./game";
 import { MySocket } from "./socket";
 const debug = require("debug")("server:players");
 
@@ -69,6 +69,8 @@ function connectPlayer(user: User, getState: ConstState, dispatch: Dispatch) {
   const state = getState();
   debug("connectPlayer");
   const { socket, gameId, index } = state.connections.get(user.id)!;
+  socket.emit("gameInfo", getInfo(state.games.get(gameId)!));
+
   socket.on("bid", (bid: number) => {
     const game = getState().games.get(gameId)!;
     if (game.playerTurn != index) return;

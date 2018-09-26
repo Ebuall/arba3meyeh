@@ -1,39 +1,31 @@
+import { FontAwesome } from "@expo/vector-icons";
 import * as React from "react";
-import {
-  ActivityIndicator,
-  Text,
-  View,
-  StatusBar,
-  StyleSheet,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Button } from "react-native-elements";
 import { UserConnection } from "../../../frontend/user";
 import { User } from "../../../model";
+import { FullScreenLoader } from "../FullScreenLoader";
 import { Controls } from "./Controls";
-import { FontAwesome } from "@expo/vector-icons";
-import { Team, PlayerState } from "../../../backend/game";
 import { Environment } from "./Environment";
 
 type Props = {
-  goBack: () => void;
+  leaveGame: () => void;
   user: User;
 };
-const url = "https://c25e0afd.ngrok.io";
-// url="http://192.168.0.65:3555"
-console.log("url:", url);
+// const url = "https://c25e0afd.ngrok.io";
+const url = "http://192.168.0.65:3555";
+
 export class Game extends React.Component<Props> {
   render() {
-    const { user, goBack } = this.props;
+    const { user, leaveGame } = this.props;
     return (
-      <View flex={1} paddingTop={StatusBar.currentHeight}>
+      <View flex={1}>
         <View style={styles.menuButton}>
-          {/* <Button title="Menu" onPress={goBack} /> */}
           <FontAwesome.Button
             color="black"
             backgroundColor="white"
             name="gear"
-            onPress={goBack}
-            // style={styles.menuIcon}
+            onPress={leaveGame}
           >
             Menu
           </FontAwesome.Button>
@@ -49,21 +41,17 @@ export class Game extends React.Component<Props> {
               <Button onPress={props.onClick} title="Connect" />
             </View>
           )}
-          Pending={() => (
-            <View flex={1} justifyContent="center">
-              <ActivityIndicator size="large" />
-            </View>
-          )}
+          Pending={FullScreenLoader}
           Failure={props => (
             <View>
               <Text>{JSON.stringify(props.err)}</Text>
             </View>
           )}
           Success={props => {
-            const data: PlayerState = props.data;
+            const { data, info } = props;
             return (
               <View flex={1}>
-                <Environment data={data} />
+                <Environment data={data} info={info} />
                 <Controls
                   data={data}
                   onPlay={props.playCard}
@@ -82,6 +70,6 @@ const styles = StyleSheet.create({
   menuButton: {
     position: "absolute",
     right: 12,
-    top: StatusBar.currentHeight,
+    top: 12,
   },
 });

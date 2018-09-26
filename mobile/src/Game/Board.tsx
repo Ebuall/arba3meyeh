@@ -1,26 +1,15 @@
 import * as React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ImageBackground, StyleSheet, View } from "react-native";
 import { Card } from "../../../model";
 import { view } from "../helpers/styles";
 import { CardComponent } from "./Card";
-import { rotate } from "fp-ts/lib/Array";
 
 type Props = {
   board: (Card | null)[];
 };
 
 const Rotate: React.StatelessComponent<{ by: number }> = ({ by, children }) => (
-  <View
-    style={{
-      transform: [{ rotateZ: by + "deg" }],
-      // justifyContent: "center",
-      // alignItems: "center",
-      // borderColor: "brown",
-      // borderWidth: 1,
-    }}
-  >
-    {children}
-  </View>
+  <View style={{ transform: [{ rotateZ: by + "deg" }] }}>{children}</View>
 );
 
 const SCALE = 0.45;
@@ -42,34 +31,33 @@ export class Board extends React.Component<Props> {
     const myCard = <Rotate by={0}>{nullableCard(board[0])}</Rotate>;
 
     return (
-      <View style={styles.container}>
+      <ImageBackground
+        style={styles.container}
+        source={require("../../assets/images/Table_BlueGem.png")}
+      >
         {tmCard}
         <View style={styles.middleRow}>
           {leftCard}
           {rightCard}
         </View>
         {myCard}
-      </View>
+      </ImageBackground>
     );
   }
 }
 
 const styles = StyleSheet.create({
   container: view({
-    borderColor: "brown",
-    borderWidth: 5,
-    borderRadius: 5,
-    width: 220,
-    height: 130,
-    // flexDirection: "row",
-    // flexWrap: "wrap",
+    width: 310,
+    height: 230,
     justifyContent: "center",
     alignItems: "center",
-    padding: 35,
+    padding: 80,
+    margin: -45,
   }),
   middleRow: view({
     flexDirection: "row",
-    marginVertical: -16,
+    marginVertical: -20,
     width: "100%",
     justifyContent: "space-between",
   }),

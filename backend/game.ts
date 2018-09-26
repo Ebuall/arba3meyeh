@@ -211,3 +211,8 @@ function toPoints(n: number) {
   }
   return n * 4;
 }
+
+export type GameInfo = ReturnType<typeof getInfo>;
+export function getInfo(game: Match) {
+  return { players: game.players, id: game.id };
+}

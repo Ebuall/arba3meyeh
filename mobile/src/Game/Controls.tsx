@@ -55,5 +55,5 @@ const styles = StyleSheet.create({
     height: 110,
   }),
   handScroll: view({}),
-  bidTitle: { color: "black", textAlign: "center" },
+  bidTitle: { color: "white", textAlign: "center" },
 });

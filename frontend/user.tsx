@@ -2,18 +2,21 @@ import {
   initial,
   pending,
   RemoteData,
+  remoteData,
   success,
 } from "@devexperts/remote-data-ts";
+import { sequenceT } from "fp-ts/lib/Apply";
 import * as React from "react";
 import io from "socket.io-client";
-import { PlayerState } from "../backend/game";
-import { AI } from "../model/ai";
+import { GameInfo, PlayerState } from "../backend/game";
 import { User } from "../model";
+import { AI } from "../model/ai";
 
 export type InitialProps = { onClick: () => void };
 export type FailureProps = { err: string };
 export type SuccessProps = {
   data: PlayerState;
+  info: GameInfo;
   name: string;
   playCard: (n: number) => void;
   submitBid: (n: number) => void;
@@ -32,13 +35,14 @@ type Props = {
 };
 type State = {
   data: RemoteData<string, PlayerState>;
+  info: RemoteData<string, GameInfo>;
 };
 
 /** React-native safe */
 export class UserConnection extends React.Component<Props, State> {
   socket!: SocketIOClient.Socket;
   ai!: AI;
-  state: State = { data: initial };
+  state: State = { data: initial, info: initial };
   componentDidMount() {
     this.connect();
   }
@@ -61,10 +65,13 @@ export class UserConnection extends React.Component<Props, State> {
       // transports: ["websocket", "polling"],
     });
     this.socket = socket;
-    this.setState({ data: pending });
+    this.setState({ data: pending, info: pending });
     socket.on("connect", () => console.log(name, "connected"));
     socket.on("gameState", (data: PlayerState) => {
       this.setState({ data: success(data) });
+    });
+    socket.on("gameInfo", (info: GameInfo) => {
+      this.setState({ info: success(info) });
     });
     this.ai = new AI(socket);
   };
@@ -92,15 +99,16 @@ export class UserConnection extends React.Component<Props, State> {
       Failure,
       Success,
     } = this.props;
-    const { data } = this.state;
+    const { data, info } = this.state;
 
-    return data.fold<React.ReactNode>(
+    return sequenceT(remoteData)(data, info).fold<React.ReactNode>(
       <Initial onClick={this.connect} />,
       <Pending />,
       err => <Failure err={err} />,
-      data => (
+      ([data, info]) => (
         <Success
           data={data}
+          info={info}
           name={name}
           playCard={this.playCard}
           submitBid={this.submitBid}
